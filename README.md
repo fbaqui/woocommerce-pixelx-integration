@@ -1,7 +1,5 @@
 # WooCommerce Pixel X Integration
 
-![Banner](assets/banner-1544x500.png)
-
 Plugin oficial para integração entre WooCommerce e Pixel X, enviando eventos de compra, leads e dados de rastreamento para o CAPI e Pixel do Meta.
 
 ## 📦 Recursos

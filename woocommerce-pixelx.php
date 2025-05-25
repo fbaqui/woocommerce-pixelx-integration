@@ -177,9 +177,9 @@ function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
     $status_map = [
         'pending'    => 'waiting_payment',
         'processing' => 'waiting_payment',
-        'on-hold'   => 'waiting_payment',
+        'on-hold'    => 'waiting_payment',
         'completed'  => 'approved',
-        'cancelled'  => 'abandoned_cart',
+        'cancelled'  => 'canceled', // estava 'abandoned_cart' mas o pixelX tratava como initiateCheckout
         'refunded'   => 'refund',
         'failed'     => 'canceled'
     ];
@@ -208,7 +208,9 @@ function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
             'product_name' => $product_name,
             'value' => $order->get_total(),
             //'currency' => $order->get_currency()
-        ],
+        ]
+        // remoção de tracking para ver se pixelX carrega os dados da ficha do lead
+        /*,
         'lead' => [
             //'id' => $order->get_customer_id(),
             'name' => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
@@ -222,7 +224,7 @@ function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
             'utm_medium' => $order->get_meta('_wc_order_attribution_utm_medium'),
             'utm_campaign' => $order->get_meta('_wc_order_attribution_utm_campaign'),
             'fbc' => pixelx_format_fbc($fbclid, $order->get_date_created()->format('Y-m-d H:i:s'))
-        ]
+        ]*/
     ];
 
     // Enviar via POST

@@ -142,8 +142,24 @@ function pixelx_webhook_token_callback() {
 }
 
 // 3. Disparar Webhook para Todos os Status
+// Envia webhook tanto na criação quanto na alteração de status
+add_action('woocommerce_new_order', 'pixelx_send_new_order_webhook', 10, 2);
 add_action('woocommerce_order_status_changed', 'pixelx_send_webhook', 10, 4);
+
+function pixelx_send_new_order_webhook($order_id, $order) {
+    // Força o envio mesmo sendo o status inicial
+    pixelx_send_webhook($order_id, 'new', 'pending', $order);
+}
+
 function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
+    // Se for um pedido novo, $old_status virá como 'new'
+    $is_new_order = ($old_status === 'new');
+    
+    // Não envia se for uma atualização para o mesmo status (exceto para novos pedidos)
+    if (!$is_new_order && $old_status === $new_status) {
+        return;
+    }
+    
     $webhook_url = get_option('pixelx_webhook_url');
     $token = get_option('pixelx_webhook_token');
 

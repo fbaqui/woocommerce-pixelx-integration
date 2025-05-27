@@ -8,6 +8,16 @@ Plugin oficial para integração entre WooCommerce e Pixel X, enviando eventos d
 - Rastreamento completo com `fbc`, `fbp`, UTMs e parâmetros customizados (`src`, `sck`)
 - Logs detalhados em `/wp-content/webhook-logs/`
 
+## 🔄 Reenvio Manual de Webhooks
+
+1. **Pedido individual**:
+   - Acesse a tela de edição do pedido
+   - Clique no botão "Reenviar para Pixel X" na barra de ações
+
+2. **Ação em massa**:
+   - Na lista de pedidos, selecione vários pedidos
+   - Escolha "Reenviar para Pixel X" no menu de ações em massa
+
 ## ⚙️ Instalação
 1. Baixe o [último release](https://github.com/fbaqui/woocommerce-pixelx-integration/releases)
 2. Envie para `/wp-content/plugins/`

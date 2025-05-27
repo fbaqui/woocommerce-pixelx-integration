@@ -103,51 +103,6 @@ function pixelx_admin_page() {
 }
 
 /**
- * Adiciona botão de reenvio na tela de edição do pedido
- */
-add_action('woocommerce_admin_order_actions_end', 'pixelx_add_resend_button', 10, 1);
-function pixelx_add_resend_button($order) {
-    if (is_numeric($order)) {
-        $order = wc_get_order($order);
-    }
-
-    if (!$order) {
-        return;
-    }
-
-    $url = wp_nonce_url(
-        admin_url("admin-post.php?action=pixelx_resend_webhook&order_id=" . $order->get_id()),
-        'pixelx_resend_webhook'
-    );
-
-    echo sprintf(
-        '<a class="button pixelx-resend-button" href="%s" title="%s">%s</a>',
-        esc_url($url),
-        esc_attr(__('Reenviar status para Pixel X', 'pixelx-woocommerce')),
-        esc_html__('Reenviar para Pixel X', 'pixelx-woocommerce')
-    );
-}
-
-/**
- * CSS para o botão
- */
-add_action('admin_head', 'pixelx_admin_styles');
-function pixelx_admin_styles() {
-    echo '<style>
-        .pixelx-resend-button {
-            background: #4CAF50;
-            color: white;
-            border-color: #4CAF50;
-            margin-left: 5px;
-        }
-        .pixelx-resend-button:hover {
-            background: #3e8e41;
-            border-color: #3e8e41;
-        }
-    </style>';
-}
-
-/**
  * Registra o endpoint para reenvio
  */
 add_action('admin_post_pixelx_resend_webhook', 'pixelx_handle_resend_webhook');

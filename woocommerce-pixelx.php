@@ -72,10 +72,9 @@ function pixelx_format_fbc($fbclid, $event_time) {
     return "fb.1.{$timestamp}.{$clean_fbclid}";
 }
 
-// Adiciona menu principal e submenus
-add_action('admin_menu', 'pixelx_unified_admin_menu');
-function pixelx_unified_admin_menu() {
-    // Menu principal
+// Adiciona o menu principal com submenus
+add_action('admin_menu', 'pixelx_admin_menu_consolidado');
+function pixelx_admin_menu_consolidado() {
     add_menu_page(
         'Pixel X 4 WooCommerce',
         'Pixel X 4 WooCommerce',
@@ -86,20 +85,18 @@ function pixelx_unified_admin_menu() {
         100
     );
 
-    // Submenu: Configurações
     add_submenu_page(
         'pixelx-settings',
-        'Configurações do Pixel X',
+        'Configurações',
         'Configurações',
         'manage_options',
         'pixelx-settings',
         'pixelx_admin_page'
     );
 
-    // Submenu: Reenviar Webhook
     add_submenu_page(
         'pixelx-settings',
-        'Reenviar Webhook Pixel X',
+        'Reenviar Webhook',
         'Reenviar Webhook',
         'manage_woocommerce',
         'pixelx-reativar-webhook',
@@ -128,8 +125,9 @@ function pixelx_render_admin_page() {
     ?>
     <div class="wrap">
         <h1>Reenviar webhook para Pixel X</h1>
-        <form method="post">
-            <?php wp_nonce_field('pixelx_reativar_webhook'); ?>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <?php wp_nonce_field('pixelx_resend_webhook'); ?>
+            <input type="hidden" name="action" value="pixelx_resend_webhook">
             <table class="form-table">
                 <tr>
                     <th scope="row"><label for="order_id">ID do Pedido</label></th>
@@ -138,63 +136,44 @@ function pixelx_render_admin_page() {
             </table>
             <?php submit_button('Reenviar Webhook'); ?>
         </form>
-
-        <?php
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && current_user_can('manage_woocommerce')) {
-            if (check_admin_referer('pixelx_reativar_webhook')) {
-                $order_id = intval($_POST['order_id']);
-                $order = wc_get_order($order_id);
-
-                if ($order) {
-                    $sucesso = pixelx_processar_webhook($order);
-                    if ($sucesso) {
-                        echo '<div class="notice notice-success is-dismissible"><p>Webhook reenviado com sucesso para o pedido #' . $order_id . '</p></div>';
-                    } else {
-                        echo '<div class="notice notice-error is-dismissible"><p>Falha ao reenviar webhook para o pedido #' . $order_id . '</p></div>';
-                    }
-                } else {
-                    echo '<div class="notice notice-error is-dismissible"><p>Pedido não encontrado com ID #' . $order_id . '</p></div>';
-                }
-            }
-        }
-        ?>
     </div>
     <?php
 }
 
-/**
- * Registra o endpoint para reenvio
- */
+// Manipula o POST para reenvio individual
 add_action('admin_post_pixelx_resend_webhook', 'pixelx_handle_resend_webhook');
 function pixelx_handle_resend_webhook() {
     // Verifica segurança
-    if (!current_user_can('edit_shop_orders') || !wp_verify_nonce($_REQUEST['_wpnonce'], 'pixelx_resend_webhook')) {
+    if (!current_user_can('edit_shop_orders') || !wp_verify_nonce($_POST['_wpnonce'], 'pixelx_resend_webhook')) {
         wp_die(__('Ação não permitida', 'pixelx-woocommerce'));
     }
 
-    $order_id = intval($_GET['order_id']);
+    $order_id = intval($_POST['order_id']);
     $order = wc_get_order($order_id);
 
     if (!$order) {
-        wp_die(__('Pedido não encontrado', 'pixelx-woocommerce'));
+        wp_redirect(add_query_arg(
+            'pixelx_message', 
+            urlencode('Pedido não encontrado.'), 
+            admin_url('admin.php?page=pixelx-reativar-webhook')
+        ));
+        exit;
     }
 
-    // Dispara o webhook com o status atual
+    // Envia o webhook
     $current_status = $order->get_status();
     pixelx_send_webhook($order_id, 'manual_resend', $current_status, $order);
 
-    // Redireciona de volta com mensagem
+    // Redireciona com sucesso
     wp_redirect(add_query_arg(
         'pixelx_message', 
-        urlencode('Webhook reenviado com sucesso!'), 
-        admin_url('post.php?post=' . $order_id . '&action=edit')
+        urlencode('Webhook reenviado com sucesso para o pedido #' . $order_id), 
+        admin_url('admin.php?page=pixelx-reativar-webhook')
     ));
     exit;
 }
 
-/**
- * Mostra mensagens de feedback
- */
+// Exibe mensagens de feedback
 add_action('admin_notices', 'pixelx_show_admin_notices');
 function pixelx_show_admin_notices() {
     if (!empty($_GET['pixelx_message'])) {
@@ -203,6 +182,7 @@ function pixelx_show_admin_notices() {
              '</p></div>';
     }
 }
+
 
 add_action('admin_init', 'pixelx_settings_init');
 function pixelx_settings_init() {

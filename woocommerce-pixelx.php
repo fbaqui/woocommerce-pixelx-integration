@@ -72,11 +72,12 @@ function pixelx_format_fbc($fbclid, $event_time) {
     return "fb.1.{$timestamp}.{$clean_fbclid}";
 }
 
-// 1. Página de Configurações
-add_action('admin_menu', 'pixelx_add_admin_menu');
-function pixelx_add_admin_menu() {
+// Adiciona menu principal e submenus
+add_action('admin_menu', 'pixelx_unified_admin_menu');
+function pixelx_unified_admin_menu() {
+    // Menu principal
     add_menu_page(
-        'Configurações Pixel X',
+        'Pixel X 4 WooCommerce',
         'Pixel X 4 WooCommerce',
         'manage_options',
         'pixelx-settings',
@@ -84,9 +85,29 @@ function pixelx_add_admin_menu() {
         'dashicons-chart-line',
         100
     );
+
+    // Submenu: Configurações
+    add_submenu_page(
+        'pixelx-settings',
+        'Configurações do Pixel X',
+        'Configurações',
+        'manage_options',
+        'pixelx-settings',
+        'pixelx_admin_page'
+    );
+
+    // Submenu: Reenviar Webhook
+    add_submenu_page(
+        'pixelx-settings',
+        'Reenviar Webhook Pixel X',
+        'Reenviar Webhook',
+        'manage_woocommerce',
+        'pixelx-reativar-webhook',
+        'pixelx_render_admin_page'
+    );
 }
 
-// 2. Campos de Configuração (Token e URL)
+// Página de Configurações
 function pixelx_admin_page() {
     ?>
     <div class="wrap">
@@ -102,21 +123,7 @@ function pixelx_admin_page() {
     <?php
 }
 
-// 1. Adiciona o menu no admin
-add_action('admin_menu', 'pixelx_admin_menu');
-function pixelx_admin_menu() {
-    add_menu_page(
-        'Reenviar para PixelX',
-        'Reenviar PixelX',
-        'manage_woocommerce',
-        'pixelx-reativar-webhook',
-        'pixelx_render_admin_page',
-        'dashicons-update',
-        56
-    );
-}
-
-// 2. Renderiza a página do formulário
+// Página de Reenvio de Webhook
 function pixelx_render_admin_page() {
     ?>
     <div class="wrap">
@@ -133,7 +140,6 @@ function pixelx_render_admin_page() {
         </form>
 
         <?php
-        // 3. Processa o formulário
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && current_user_can('manage_woocommerce')) {
             if (check_admin_referer('pixelx_reativar_webhook')) {
                 $order_id = intval($_POST['order_id']);
@@ -155,6 +161,7 @@ function pixelx_render_admin_page() {
     </div>
     <?php
 }
+
 /**
  * Registra o endpoint para reenvio
  */

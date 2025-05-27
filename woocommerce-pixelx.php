@@ -107,16 +107,24 @@ function pixelx_admin_page() {
  */
 add_action('woocommerce_admin_order_actions_end', 'pixelx_add_resend_button', 10, 1);
 function pixelx_add_resend_button($order) {
+    if (is_numeric($order)) {
+        $order = wc_get_order($order);
+    }
+
+    if (!$order) {
+        return;
+    }
+
     $url = wp_nonce_url(
         admin_url("admin-post.php?action=pixelx_resend_webhook&order_id=" . $order->get_id()),
         'pixelx_resend_webhook'
     );
-    
+
     echo sprintf(
         '<a class="button pixelx-resend-button" href="%s" title="%s">%s</a>',
-        $url,
-        __('Reenviar status para Pixel X', 'pixelx-woocommerce'),
-        __('Reenviar para Pixel X', 'pixelx-woocommerce')
+        esc_url($url),
+        esc_attr(__('Reenviar status para Pixel X', 'pixelx-woocommerce')),
+        esc_html__('Reenviar para Pixel X', 'pixelx-woocommerce')
     );
 }
 

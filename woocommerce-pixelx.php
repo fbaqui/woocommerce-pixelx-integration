@@ -102,6 +102,85 @@ function pixelx_admin_page() {
     <?php
 }
 
+/**
+ * Adiciona botão de reenvio na tela de edição do pedido
+ */
+add_action('woocommerce_admin_order_actions_end', 'pixelx_add_resend_button', 10, 1);
+function pixelx_add_resend_button($order) {
+    $url = wp_nonce_url(
+        admin_url("admin-post.php?action=pixelx_resend_webhook&order_id=" . $order->get_id()),
+        'pixelx_resend_webhook'
+    );
+    
+    echo sprintf(
+        '<a class="button pixelx-resend-button" href="%s" title="%s">%s</a>',
+        $url,
+        __('Reenviar status para Pixel X', 'pixelx-woocommerce'),
+        __('Reenviar para Pixel X', 'pixelx-woocommerce')
+    );
+}
+
+/**
+ * CSS para o botão
+ */
+add_action('admin_head', 'pixelx_admin_styles');
+function pixelx_admin_styles() {
+    echo '<style>
+        .pixelx-resend-button {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+            margin-left: 5px;
+        }
+        .pixelx-resend-button:hover {
+            background: #3e8e41;
+            border-color: #3e8e41;
+        }
+    </style>';
+}
+
+/**
+ * Registra o endpoint para reenvio
+ */
+add_action('admin_post_pixelx_resend_webhook', 'pixelx_handle_resend_webhook');
+function pixelx_handle_resend_webhook() {
+    // Verifica segurança
+    if (!current_user_can('edit_shop_orders') || !wp_verify_nonce($_REQUEST['_wpnonce'], 'pixelx_resend_webhook')) {
+        wp_die(__('Ação não permitida', 'pixelx-woocommerce'));
+    }
+
+    $order_id = intval($_GET['order_id']);
+    $order = wc_get_order($order_id);
+
+    if (!$order) {
+        wp_die(__('Pedido não encontrado', 'pixelx-woocommerce'));
+    }
+
+    // Dispara o webhook com o status atual
+    $current_status = $order->get_status();
+    pixelx_send_webhook($order_id, 'manual_resend', $current_status, $order);
+
+    // Redireciona de volta com mensagem
+    wp_redirect(add_query_arg(
+        'pixelx_message', 
+        urlencode('Webhook reenviado com sucesso!'), 
+        admin_url('post.php?post=' . $order_id . '&action=edit')
+    ));
+    exit;
+}
+
+/**
+ * Mostra mensagens de feedback
+ */
+add_action('admin_notices', 'pixelx_show_admin_notices');
+function pixelx_show_admin_notices() {
+    if (!empty($_GET['pixelx_message'])) {
+        echo '<div class="notice notice-success is-dismissible"><p>' . 
+             esc_html(urldecode($_GET['pixelx_message'])) . 
+             '</p></div>';
+    }
+}
+
 add_action('admin_init', 'pixelx_settings_init');
 function pixelx_settings_init() {
     register_setting('pixelx_settings', 'pixelx_webhook_url');
@@ -131,6 +210,52 @@ function pixelx_settings_init() {
     );
 }
 
+/**
+ * Adiciona ação em massa
+ */
+add_filter('bulk_actions-edit-shop_order', 'pixelx_add_bulk_action');
+function pixelx_add_bulk_action($actions) {
+    $actions['pixelx_resend'] = __('Reenviar para Pixel X', 'pixelx-woocommerce');
+    return $actions;
+}
+
+/**
+ * Processa ação em massa
+ */
+add_filter('handle_bulk_actions-edit-shop_order', 'pixelx_handle_bulk_action', 10, 3);
+function pixelx_handle_bulk_action($redirect_to, $action, $order_ids) {
+    if ($action !== 'pixelx_resend') {
+        return $redirect_to;
+    }
+
+    foreach ($order_ids as $order_id) {
+        $order = wc_get_order($order_id);
+        if ($order) {
+            $current_status = $order->get_status();
+            pixelx_send_webhook($order_id, 'manual_resend', $current_status, $order);
+        }
+    }
+
+    return add_query_arg(
+        'pixelx_bulk_resend', 
+        count($order_ids), 
+        $redirect_to
+    );
+}
+
+/**
+ * Mostra feedback para ação em massa
+ */
+add_action('admin_notices', 'pixelx_bulk_action_admin_notice');
+function pixelx_bulk_action_admin_notice() {
+    if (!empty($_REQUEST['pixelx_bulk_resend'])) {
+        $count = intval($_REQUEST['pixelx_bulk_resend']);
+        echo '<div class="notice notice-success is-dismissible"><p>' .
+             sprintf(_n('Reenviado %d pedido para Pixel X', 'Reenviados %d pedidos para Pixel X', $count, 'pixelx-woocommerce'), $count) .
+             '</p></div>';
+    }
+}
+
 function pixelx_webhook_url_callback() {
     $url = esc_attr(get_option('pixelx_webhook_url'));
     echo "<input type='text' name='pixelx_webhook_url' value='{$url}' class='regular-text' placeholder='https://seu-endpoint.pixelx.app'>";
@@ -152,11 +277,11 @@ function pixelx_send_new_order_webhook($order_id, $order) {
 }
 
 function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
-    // Se for um pedido novo, $old_status virá como 'new'
-    $is_new_order = ($old_status === 'new');
+    // Se for um reenvio manual
+    $is_manual_resend = ($old_status === 'manual_resend');
     
-    // Não envia se for uma atualização para o mesmo status (exceto para novos pedidos)
-    if (!$is_new_order && $old_status === $new_status) {
+    // Não envia se for uma atualização para o mesmo status (exceto para novos pedidos ou reenvios)
+    if (!$is_manual_resend && $old_status !== 'new' && $old_status === $new_status) {
         return;
     }
     
@@ -233,11 +358,14 @@ function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
         'timeout' => 15
     ];
 
-    pixelx_log("Enviando webhook para Pixel X", [
+    $log_data = [
         'order_id' => $order_id,
         'status' => $new_status,
+        'event_type' => $is_manual_resend ? 'manual_resend' : ($old_status === 'new' ? 'new_order' : 'status_change'),
         'payload' => $payload
-    ]);
+    ];
+
+    pixelx_log("Enviando webhook para Pixel X", $log_data);
 
     $response = wp_remote_post($webhook_url, $args);
 

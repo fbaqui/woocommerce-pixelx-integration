@@ -102,6 +102,59 @@ function pixelx_admin_page() {
     <?php
 }
 
+// 1. Adiciona o menu no admin
+add_action('admin_menu', 'pixelx_admin_menu');
+function pixelx_admin_menu() {
+    add_menu_page(
+        'Reenviar para PixelX',
+        'Reenviar PixelX',
+        'manage_woocommerce',
+        'pixelx-reativar-webhook',
+        'pixelx_render_admin_page',
+        'dashicons-update',
+        56
+    );
+}
+
+// 2. Renderiza a página do formulário
+function pixelx_render_admin_page() {
+    ?>
+    <div class="wrap">
+        <h1>Reenviar webhook para Pixel X</h1>
+        <form method="post">
+            <?php wp_nonce_field('pixelx_reativar_webhook'); ?>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="order_id">ID do Pedido</label></th>
+                    <td><input name="order_id" type="number" id="order_id" value="" class="regular-text" required></td>
+                </tr>
+            </table>
+            <?php submit_button('Reenviar Webhook'); ?>
+        </form>
+
+        <?php
+        // 3. Processa o formulário
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && current_user_can('manage_woocommerce')) {
+            if (check_admin_referer('pixelx_reativar_webhook')) {
+                $order_id = intval($_POST['order_id']);
+                $order = wc_get_order($order_id);
+
+                if ($order) {
+                    $sucesso = pixelx_processar_webhook($order);
+                    if ($sucesso) {
+                        echo '<div class="notice notice-success is-dismissible"><p>Webhook reenviado com sucesso para o pedido #' . $order_id . '</p></div>';
+                    } else {
+                        echo '<div class="notice notice-error is-dismissible"><p>Falha ao reenviar webhook para o pedido #' . $order_id . '</p></div>';
+                    }
+                } else {
+                    echo '<div class="notice notice-error is-dismissible"><p>Pedido não encontrado com ID #' . $order_id . '</p></div>';
+                }
+            }
+        }
+        ?>
+    </div>
+    <?php
+}
 /**
  * Registra o endpoint para reenvio
  */

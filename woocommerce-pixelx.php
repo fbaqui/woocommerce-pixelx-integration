@@ -324,19 +324,34 @@ function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
     $fbclid = strpos($order->get_meta('_wc_order_attribution_session_entry'), 'fbclid=') !== false ?
         explode('fbclid=', $order->get_meta('_wc_order_attribution_session_entry'))[1] : '';
 
+// Primeiro, obtenha o status mapeado
+$event_status = $status_map[$new_status] ?? $new_status;
+
+// Construa o array do evento de forma condicional
+if ($event_status === 'abandoned_cart') {
+    $event_data = [
+        'name' => 'AbandonedCart',  // Nome do evento específico
+        'date' => $order->get_date_created()->format('Y-m-d H:i:s'),
+        'url' => $order->get_checkout_order_received_url(),
+        'product_id' => $product_id,
+        'product_name' => $product_name,
+        'value' => $order->get_total()
+    ];
+} else {
+    $event_data = [
+        'status' => $event_status,  // Mantém a chave 'status' para outros casos
+        'date' => $order->get_date_created()->format('Y-m-d H:i:s'),
+        'url' => $order->get_checkout_order_received_url(),
+        'product_id' => $product_id,
+        'product_name' => $product_name,
+        'value' => $order->get_total()
+    ];
+}
 
     // Montar payload
     $payload = [
         'token' => $token,
-        'event' => [
-            'status' => $status_map[$new_status] ?? $new_status,
-            'date' => $order->get_date_created()->format('Y-m-d H:i:s'),
-            'url' => $order->get_checkout_order_received_url(),
-            'product_id' => $product_id,
-            'product_name' => $product_name,
-            'value' => $order->get_total(),
-            //'currency' => $order->get_currency()
-        ],
+        'event' => $event_data,
         'lead' => [
             'id' => $order->get_customer_id(),
             'name' => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),

@@ -307,7 +307,7 @@ function pixelx_send_webhook($order_id, $old_status, $new_status, $order) {
         'processing' => 'waiting_payment',
         'on-hold'    => 'waiting_payment',
         'completed'  => 'approved',
-        'cancelled'  => 'canceled', // estava 'abandoned_cart' mas o pixelX tratava como initiateCheckout
+        'cancelled'  => 'abandoned_cart', // estava 'abandoned_cart' mas o pixelX tratava como initiateCheckout
         'refunded'   => 'refund',
         'failed'     => 'canceled'
     ];

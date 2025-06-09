@@ -359,14 +359,13 @@ if ($event_status === 'abandoned_cart') {
             'phone' => $order->get_billing_phone(),
             'ip' => $order->get_customer_ip_address(),
             'user_agent' => $order->get_customer_user_agent()
-        ]
-        /*,
+        ],
         'tracking' => [
             'utm_source' => $order->get_meta('_wc_order_attribution_utm_source'),
             'utm_medium' => $order->get_meta('_wc_order_attribution_utm_medium'),
             'utm_campaign' => $order->get_meta('_wc_order_attribution_utm_campaign'),
-            //'fbc' => pixelx_format_fbc($fbclid, $order->get_date_created()->format('Y-m-d H:i:s'))
-        ]*/
+            'fbc' => pixelx_format_fbc($fbclid, $order->get_date_created()->format('Y-m-d H:i:s'))
+        ]
     ];
 
     // Enviar via POST
